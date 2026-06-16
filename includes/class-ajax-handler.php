@@ -20,6 +20,7 @@ class PI_AJAX_Handler {
         add_action('wp_ajax_pi_preview_file', array(__CLASS__, 'handle_preview'));
         add_action('wp_ajax_pi_browse_folders', array(__CLASS__, 'handle_browse_folders'));
         add_action('wp_ajax_pi_refresh_page_dropdown', array(__CLASS__, 'handle_refresh_page_dropdown'));
+        add_action('wp_ajax_pi_import_folder', array(__CLASS__, 'handle_import_folder'));
     }
 
     /**
@@ -37,7 +38,7 @@ class PI_AJAX_Handler {
             if (!current_user_can('manage_options')) {
                 ob_end_clean();
                 wp_send_json_error(array(
-                    'message' => __('You do not have permission to perform this action.', 'html-page-importer')
+                    'message' => __('You do not have permission to perform this action.', PI_NAME )
                 ));
             }
 
@@ -45,7 +46,7 @@ class PI_AJAX_Handler {
             if (empty($_FILES['pi_files'])) {
                 ob_end_clean();
                 wp_send_json_error(array(
-                    'message' => __('No files were uploaded.', 'html-page-importer')
+                    'message' => __('No files were uploaded.', PI_NAME )
                 ));
             }
 
@@ -147,7 +148,7 @@ class PI_AJAX_Handler {
         // Send response
         wp_send_json_success(array(
             'message' => sprintf(
-                __('Import completed. %d succeeded, %d failed.', 'html-page-importer'),
+                __('Import completed. %d succeeded, %d failed.', PI_NAME ),
                 count($results['success']),
                 count($results['failed'])
             ),
@@ -177,7 +178,7 @@ class PI_AJAX_Handler {
         // Check user capabilities
         if (!current_user_can('manage_options')) {
             wp_send_json_error(array(
-                'message' => __('You do not have permission to perform this action.', 'html-page-importer')
+                'message' => __('You do not have permission to perform this action.', PI_NAME )
             ));
         }
 
@@ -189,7 +190,7 @@ class PI_AJAX_Handler {
         // For now, we'll use the batch import method above
 
         wp_send_json_success(array(
-            'message' => __('File processed successfully', 'html-page-importer')
+            'message' => __('File processed successfully', PI_NAME )
         ));
     }
 
@@ -203,14 +204,14 @@ class PI_AJAX_Handler {
         // Check user capabilities
         if (!current_user_can('manage_options')) {
             wp_send_json_error(array(
-                'message' => __('You do not have permission to perform this action.', 'html-page-importer')
+                'message' => __('You do not have permission to perform this action.', PI_NAME )
             ));
         }
 
         // Check if file was uploaded
         if (empty($_FILES['preview_file'])) {
             wp_send_json_error(array(
-                'message' => __('No file was uploaded for preview.', 'html-page-importer')
+                'message' => __('No file was uploaded for preview.', PI_NAME )
             ));
         }
 
@@ -245,8 +246,8 @@ class PI_AJAX_Handler {
             'title' => $extracted['title'],
             'content' => $content_preview,
             'content_full' => strlen($extracted['content']) . ' characters',
-            'date' => $extracted['date'] ? date('F j, Y', strtotime($extracted['date'])) : __('Not found', 'html-page-importer'),
-            'first_image' => !empty($extracted['first_image']) ? $extracted['first_image'] : __('Not found', 'html-page-importer'),
+            'date' => $extracted['date'] ? date('F j, Y', strtotime($extracted['date'])) : __('Not found', PI_NAME ),
+            'first_image' => !empty($extracted['first_image']) ? $extracted['first_image'] : __('Not found', PI_NAME ),
             'file_name' => $extracted['file_name']
         ));
     }
@@ -261,7 +262,7 @@ class PI_AJAX_Handler {
         // Check user capabilities
         if (!current_user_can('manage_options')) {
             wp_send_json_error(array(
-                'message' => __('You do not have permission to perform this action.', 'html-page-importer')
+                'message' => __('You do not have permission to perform this action.', PI_NAME )
             ));
         }
 
@@ -282,14 +283,14 @@ class PI_AJAX_Handler {
         $path = realpath($path);
         if ($path === false) {
             wp_send_json_error(array(
-                'message' => __('Invalid directory path.', 'html-page-importer')
+                'message' => __('Invalid directory path.', PI_NAME )
             ));
         }
 
         // Check if path is readable
         if (!is_dir($path) || !is_readable($path)) {
             wp_send_json_error(array(
-                'message' => __('Cannot read directory.', 'html-page-importer')
+                'message' => __('Cannot read directory.', PI_NAME )
             ));
         }
 
@@ -354,6 +355,80 @@ class PI_AJAX_Handler {
     }
 
     /**
+     * Handle folder import AJAX request.
+     * Recursively imports all HTML files from the given server-side folder,
+     * creating WordPress pages for each subfolder to preserve hierarchy.
+     */
+    public static function handle_import_folder() {
+        ob_start();
+
+        try {
+            check_ajax_referer('pi_import_nonce', 'nonce');
+
+            if (!current_user_can('manage_options')) {
+                ob_end_clean();
+                wp_send_json_error(array('message' => __('You do not have permission to perform this action.', PI_NAME)));
+            }
+
+            $folder_path = isset($_POST['html_folder']) ? sanitize_text_field(wp_unslash($_POST['html_folder'])) : '';
+
+            if (empty($folder_path)) {
+                ob_end_clean();
+                wp_send_json_error(array('message' => __('No folder path specified.', PI_NAME)));
+            }
+
+            $real_path = realpath($folder_path);
+            if ($real_path === false || !is_dir($real_path) || !is_readable($real_path)) {
+                ob_end_clean();
+                wp_send_json_error(array('message' => __('Folder not found or not readable.', PI_NAME)));
+            }
+
+            $options = array(
+                'page_status'      => isset($_POST['page_status']) ? sanitize_text_field($_POST['page_status']) : 'draft',
+                'images_folder'    => isset($_POST['images_folder']) ? sanitize_text_field($_POST['images_folder']) : '',
+                'documents_folder' => isset($_POST['documents_folder']) ? sanitize_text_field($_POST['documents_folder']) : '',
+                'block_pattern'    => isset($_POST['block_pattern']) ? wp_unslash($_POST['block_pattern']) : '',
+                'page_parent'      => isset($_POST['page_parent']) ? absint($_POST['page_parent']) : 0
+            );
+
+            if (!empty($options['images_folder'])) {
+                update_option('pi_images_folder', $options['images_folder']);
+            }
+            if (!empty($options['documents_folder'])) {
+                update_option('pi_documents_folder', $options['documents_folder']);
+            }
+            update_option('pi_html_folder', $real_path);
+
+            // Increase execution time for large imports
+            @set_time_limit(600);
+
+            $results = PI_Importer::import_folder($real_path, $options);
+
+            ob_end_clean();
+
+            if (is_wp_error($results)) {
+                wp_send_json_error(array('message' => $results->get_error_message()));
+            }
+
+            wp_send_json_success(array(
+                'message' => sprintf(
+                    __('Folder import completed. %d succeeded, %d failed.', PI_NAME),
+                    $results['success_count'],
+                    $results['failed_count']
+                ),
+                'results' => $results
+            ));
+
+        } catch (Exception $e) {
+            ob_end_clean();
+            wp_send_json_error(array('message' => 'Exception: ' . $e->getMessage()));
+        } catch (Error $e) {
+            ob_end_clean();
+            wp_send_json_error(array('message' => 'Fatal error: ' . $e->getMessage()));
+        }
+    }
+
+    /**
      * Handle refresh page dropdown AJAX request
      */
     public static function handle_refresh_page_dropdown() {
@@ -363,7 +438,7 @@ class PI_AJAX_Handler {
         // Check user capabilities
         if (!current_user_can('manage_options')) {
             wp_send_json_error(array(
-                'message' => __('You do not have permission to perform this action.', 'html-page-importer')
+                'message' => __('You do not have permission to perform this action.', PI_NAME )
             ));
         }
 
@@ -372,7 +447,7 @@ class PI_AJAX_Handler {
         wp_dropdown_pages(array(
             'name' => 'page_parent',
             'id' => 'pi-page-parent',
-            'show_option_none' => __('No Parent (Top Level)', 'html-page-importer'),
+            'show_option_none' => __('No Parent (Top Level)', PI_NAME ),
             'option_none_value' => '0',
             'hierarchical' => true,
             'selected' => 0,

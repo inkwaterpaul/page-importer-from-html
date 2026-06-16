@@ -21,13 +21,13 @@ class PI_Content_Extractor {
     public static function extract_from_file($file_path, $use_blocks = true) {
         try {
             if (!file_exists($file_path)) {
-                return new WP_Error('file_not_found', __('File not found', 'html-page-importer'));
+                return new WP_Error('file_not_found', __('File not found', PI_NAME ));
             }
 
             $html_content = @file_get_contents($file_path);
 
             if ($html_content === false) {
-                return new WP_Error('read_error', __('Could not read file', 'html-page-importer'));
+                return new WP_Error('read_error', __('Could not read file', PI_NAME ));
             }
 
         // Extract data
@@ -37,11 +37,11 @@ class PI_Content_Extractor {
         $first_image = self::extract_first_image($html_content);
 
         if (empty($title)) {
-            return new WP_Error('no_title', __('No title found in HTML file', 'html-page-importer'));
+            return new WP_Error('no_title', __('No title found in HTML file', PI_NAME ));
         }
 
         if (empty($content)) {
-            return new WP_Error('no_content', __('No content found in HTML file', 'html-page-importer'));
+            return new WP_Error('no_content', __('No content found in HTML file', PI_NAME ));
         }
 
             return array(
@@ -256,7 +256,7 @@ class PI_Content_Extractor {
             case 'h5':
             case 'h6':
                 $level = substr($tag, 1);
-                return "<!-- wp:heading {\"level\":" . $level . "} -->\n" . $html . "\n<!-- /wp:heading -->\n\n";
+                return "<!-- wp:heading {\"level\":" . $level . ", \"fontSize\":\"h5\"} -->\n" . $html . "\n<!-- /wp:heading -->\n\n";
 
             case 'img':
                 $src = $node->getAttribute('src');
@@ -277,6 +277,14 @@ class PI_Content_Extractor {
                 return "<!-- wp:code -->\n<pre class=\"wp-block-code\"><code>" . htmlspecialchars($node->textContent) . "</code></pre>\n<!-- /wp:code -->\n\n";
 
             case 'table':
+                // If the table's only meaningful content is a single image, import as image block
+                $table_images = $node->getElementsByTagName('img');
+                $table_text = trim($node->textContent);
+                if ($table_images->length === 1 && $table_text === '') {
+                    $img_node = $table_images->item(0);
+                    $img_html = $node->ownerDocument->saveHTML($img_node);
+                    return "<!-- wp:image -->\n<figure class=\"wp-block-image\">" . $img_html . "</figure>\n<!-- /wp:image -->\n\n";
+                }
                 return "<!-- wp:table -->\n<figure class=\"wp-block-table\">" . $html . "</figure>\n<!-- /wp:table -->\n\n";
 
             case 'hr':
@@ -404,13 +412,13 @@ class PI_Content_Extractor {
     public static function validate_file($file) {
         // Check if file exists
         if (!isset($file['tmp_name']) || empty($file['tmp_name'])) {
-            return new WP_Error('no_file', __('No file uploaded', 'html-page-importer'));
+            return new WP_Error('no_file', __('No file uploaded', PI_NAME ));
         }
 
         // Check file extension
         $file_ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
         if (!in_array($file_ext, array('html', 'htm'))) {
-            return new WP_Error('invalid_extension', __('File must be HTML (.html or .htm)', 'html-page-importer'));
+            return new WP_Error('invalid_extension', __('File must be HTML (.html or .htm)', PI_NAME ));
         }
 
         // Check MIME type
@@ -420,13 +428,13 @@ class PI_Content_Extractor {
 
         $allowed_mime_types = array('text/html', 'text/plain', 'application/octet-stream');
         if (!in_array($mime_type, $allowed_mime_types)) {
-            return new WP_Error('invalid_mime', __('Invalid file type', 'html-page-importer'));
+            return new WP_Error('invalid_mime', __('Invalid file type', PI_NAME ));
         }
 
         // Check file size (max 10MB)
         $max_size = 10 * 1024 * 1024; // 10MB
         if ($file['size'] > $max_size) {
-            return new WP_Error('file_too_large', __('File size exceeds 10MB limit', 'html-page-importer'));
+            return new WP_Error('file_too_large', __('File size exceeds 10MB limit', PI_NAME ));
         }
 
         return true;

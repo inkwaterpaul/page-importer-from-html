@@ -18,6 +18,7 @@ if (!defined('ABSPATH')) {
 
 // Define plugin constants
 define('PI_VERSION', '1.0.0');
+define('PI_NAME', 'HTML Page Importer');
 define('PI_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('PI_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('PI_PLUGIN_FILE', __FILE__);
@@ -73,8 +74,8 @@ class HTML_Page_Importer {
      */
     public function add_admin_menu() {
         add_menu_page(
-            __('HTML Page Importer', 'html-page-importer'),
-            __('HTML Page Importer', 'html-page-importer'),
+            __('HTML Page Importer', PI_NAME),
+            __('HTML Page Importer', PI_NAME),
             'manage_options',
             'html-page-importer',
             array('PI_Admin_UI', 'render_page'),
@@ -114,9 +115,9 @@ class HTML_Page_Importer {
             'ajaxurl' => admin_url('admin-ajax.php'),
             'nonce' => wp_create_nonce('pi_import_nonce'),
             'strings' => array(
-                'processing' => __('Processing...', 'html-page-importer'),
-                'success' => __('Import completed!', 'html-page-importer'),
-                'error' => __('An error occurred.', 'html-page-importer'),
+                'processing' => __('Processing...', PI_NAME),
+                'success' => __('Import completed!', PI_NAME),
+                'error' => __('An error occurred.', PI_NAME),
             )
         ));
     }

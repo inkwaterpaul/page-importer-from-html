@@ -555,3 +555,58 @@
     padding: 40px;
     color: #646970;
 }
+
+/* Tab navigation */
+.pi-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid #2271b1;
+    margin-bottom: 20px;
+}
+
+.pi-tab {
+    background: #f0f6fc;
+    border: 1px solid #c3e4ff;
+    border-bottom: none;
+    padding: 10px 20px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: #2271b1;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-right: 4px;
+    border-radius: 4px 4px 0 0;
+    transition: background 0.15s;
+}
+
+.pi-tab:hover {
+    background: #dce9f5;
+}
+
+.pi-tab.active {
+    background: #fff;
+    border-color: #2271b1;
+    border-bottom: 2px solid #fff;
+    margin-bottom: -2px;
+    color: #135e96;
+    font-weight: 600;
+}
+
+.pi-tab .dashicons {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+}
+
+/* Indeterminate progress bar (for folder import where total is unknown) */
+.pi-progress-bar-fill-indeterminate {
+    width: 40%;
+    animation: pi-indeterminate 1.4s ease-in-out infinite;
+}
+
+@keyframes pi-indeterminate {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(350%); }
+}

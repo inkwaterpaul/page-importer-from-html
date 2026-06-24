@@ -113,12 +113,15 @@ class PI_Admin_UI {
                                             id="pi-block-pattern"
                                             name="block_pattern"
                                             rows="8"
-                                            class="large-text code"
-                                            placeholder='<!-- wp:group -->
-<div class="wp-block-group">
-{content}
-</div>
-<!-- /wp:group -->'></textarea>
+                                            class="large-text code"><?php echo esc_textarea('<!-- wp:columns {"align":"wide","style":{"spacing":{"margin":{"top":"var:preset|spacing|50","bottom":"var:preset|spacing|50"}}}} -->
+<div class="wp-block-columns alignwide" style="margin-top:var(--wp--preset--spacing--50);margin-bottom:var(--wp--preset--spacing--50)"><!-- wp:column {"width":"25%"} -->
+<div class="wp-block-column" style="flex-basis:25%"><!-- wp:octopus/page-navigation /--></div>
+<!-- /wp:column -->
+
+<!-- wp:column {"width":"75%"} -->
+<div class="wp-block-column" style="flex-basis:75%">{content}</div>
+<!-- /wp:column --></div>
+<!-- /wp:columns -->'); ?></textarea>
                                         <p class="description">
                                             <?php _e('Enter a block pattern to wrap around the imported content. Use <code>{content}</code> as the placeholder.', PI_NAME); ?>
                                         </p>
@@ -127,36 +130,32 @@ class PI_Admin_UI {
 
                                 <tr>
                                     <th scope="row">
-                                        <label for="pi-images-folder"><?php _e('Images Folder (Optional)', PI_NAME); ?></label>
+                                        <label for="pi-images-files"><?php _e('Images (Optional)', PI_NAME); ?></label>
                                     </th>
                                     <td>
-                                        <input type="text"
-                                               id="pi-images-folder"
-                                               name="images_folder"
-                                               class="regular-text"
-                                               value="<?php echo esc_attr(get_option('pi_images_folder', '')); ?>"
-                                               placeholder="/path/to/images/folder">
-                                        <button type="button" id="pi-browse-folder" class="button" data-browse-target="images"><?php _e('Browse', PI_NAME); ?></button>
+                                        <input type="file"
+                                               id="pi-images-files"
+                                               name="pi_images_files[]"
+                                               multiple
+                                               accept="image/*,.svg">
                                         <p class="description">
-                                            <?php _e('Folder containing images referenced in the HTML files. The first image will be set as the featured image.', PI_NAME); ?>
+                                            <?php _e('Select the image files referenced in your HTML files. Only images actually linked in the HTML will be uploaded. The first image will be set as the featured image.', PI_NAME); ?>
                                         </p>
                                     </td>
                                 </tr>
 
                                 <tr>
                                     <th scope="row">
-                                        <label for="pi-documents-folder"><?php _e('Documents Folder (Optional)', PI_NAME); ?></label>
+                                        <label for="pi-document-files"><?php _e('Documents (Optional)', PI_NAME); ?></label>
                                     </th>
                                     <td>
-                                        <input type="text"
-                                               id="pi-documents-folder"
-                                               name="documents_folder"
-                                               class="regular-text"
-                                               value="<?php echo esc_attr(get_option('pi_documents_folder', '')); ?>"
-                                               placeholder="/path/to/documents/folder">
-                                        <button type="button" id="pi-browse-documents-folder" class="button" data-browse-target="documents"><?php _e('Browse', PI_NAME); ?></button>
+                                        <input type="file"
+                                               id="pi-document-files"
+                                               name="pi_document_files[]"
+                                               multiple
+                                               accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.txt,.csv">
                                         <p class="description">
-                                            <?php _e('Folder containing documents (PDF, DOCX, XLS, etc.). Document URLs in the content will be updated.', PI_NAME); ?>
+                                            <?php _e('Select the document files (PDF, DOCX, XLS, etc.) referenced in your HTML files. Only documents actually linked in the HTML will be uploaded.', PI_NAME); ?>
                                         </p>
                                     </td>
                                 </tr>
@@ -205,19 +204,15 @@ class PI_Admin_UI {
                             <table class="form-table">
                                 <tr>
                                     <th scope="row">
-                                        <label for="pi-html-folder"><?php _e('HTML Files Folder', PI_NAME); ?></label>
+                                        <label for="pi-html-zip"><?php _e('HTML Files (ZIP)', PI_NAME); ?></label>
                                     </th>
                                     <td>
-                                        <input type="text"
-                                               id="pi-html-folder"
-                                               name="html_folder"
-                                               class="regular-text"
-                                               value="<?php echo esc_attr(get_option('pi_html_folder', '')); ?>"
-                                               placeholder="/path/to/html/folder"
+                                        <input type="file"
+                                               id="pi-html-zip"
+                                               accept=".zip"
                                                required>
-                                        <button type="button" class="button pi-browse-btn" data-browse-target="html-folder"><?php _e('Browse', PI_NAME); ?></button>
                                         <p class="description">
-                                            <?php _e('The root folder to scan. HTML files in this folder become top-level pages (under the selected parent). Each subfolder becomes a parent page containing its HTML files.', PI_NAME); ?>
+                                            <?php _e('ZIP your HTML folder and upload it here. Subfolders inside the ZIP become parent pages, preserving the hierarchy.', PI_NAME); ?>
                                         </p>
                                     </td>
                                 </tr>
@@ -265,53 +260,21 @@ class PI_Admin_UI {
                                             id="pi-folder-block-pattern"
                                             name="block_pattern"
                                             rows="8"
-                                            class="large-text code"
-                                            placeholder='<!-- wp:group -->
-<div class="wp-block-group">
-{content}
-</div>
-<!-- /wp:group -->'></textarea>
+                                            class="large-text code"><?php echo esc_textarea('<!-- wp:columns {"align":"wide","style":{"spacing":{"margin":{"top":"var:preset|spacing|50","bottom":"var:preset|spacing|50"}}}} -->
+<div class="wp-block-columns alignwide" style="margin-top:var(--wp--preset--spacing--50);margin-bottom:var(--wp--preset--spacing--50)"><!-- wp:column {"width":"25%"} -->
+<div class="wp-block-column" style="flex-basis:25%"><!-- wp:octopus/page-navigation /--></div>
+<!-- /wp:column -->
+
+<!-- wp:column {"width":"75%"} -->
+<div class="wp-block-column" style="flex-basis:75%">{content}</div>
+<!-- /wp:column --></div>
+<!-- /wp:columns -->'); ?></textarea>
                                         <p class="description">
                                             <?php _e('Wrap imported content in a block pattern. Use <code>{content}</code> as the placeholder.', PI_NAME); ?>
                                         </p>
                                     </td>
                                 </tr>
 
-                                <tr>
-                                    <th scope="row">
-                                        <label for="pi-folder-images-folder"><?php _e('Images Folder', PI_NAME); ?></label>
-                                    </th>
-                                    <td>
-                                        <input type="text"
-                                               id="pi-folder-images-folder"
-                                               name="images_folder"
-                                               class="regular-text"
-                                               value="<?php echo esc_attr(get_option('pi_images_folder', '')); ?>"
-                                               placeholder="/path/to/images/folder">
-                                        <button type="button" class="button pi-browse-btn" data-browse-target="folder-images"><?php _e('Browse', PI_NAME); ?></button>
-                                        <p class="description">
-                                            <?php _e('The folder containing images referenced in the HTML files. You can specify multiple paths separated by commas. The first image in each page will be set as the featured image.', PI_NAME); ?>
-                                        </p>
-                                    </td>
-                                </tr>
-
-                                <tr>
-                                    <th scope="row">
-                                        <label for="pi-folder-documents-folder"><?php _e('Documents Folder (Optional)', PI_NAME); ?></label>
-                                    </th>
-                                    <td>
-                                        <input type="text"
-                                               id="pi-folder-documents-folder"
-                                               name="documents_folder"
-                                               class="regular-text"
-                                               value="<?php echo esc_attr(get_option('pi_documents_folder', '')); ?>"
-                                               placeholder="/path/to/documents/folder">
-                                        <button type="button" class="button pi-browse-btn" data-browse-target="folder-documents"><?php _e('Browse', PI_NAME); ?></button>
-                                        <p class="description">
-                                            <?php _e('Optional: folder containing documents (PDF, DOCX, etc.) to upload and link.', PI_NAME); ?>
-                                        </p>
-                                    </td>
-                                </tr>
                             </table>
 
                             <p class="submit">
@@ -351,11 +314,12 @@ class PI_Admin_UI {
                     <div class="pi-card">
                         <h3><?php _e('Folder Import', PI_NAME); ?></h3>
                         <ol>
-                            <li><?php _e('Enter or browse to a folder path', PI_NAME); ?></li>
+                            <li><?php _e('ZIP your HTML folder and upload it', PI_NAME); ?></li>
                             <li><?php _e('Choose parent page and status', PI_NAME); ?></li>
                             <li><?php _e('Click "Import Folder"', PI_NAME); ?></li>
+                            <li><?php _e('After import, select your images and documents folders to upload only the referenced files', PI_NAME); ?></li>
                         </ol>
-                        <p class="description"><?php _e('Subfolders become parent pages. Specify the images folder so referenced images are uploaded automatically.', PI_NAME); ?></p>
+                        <p class="description"><?php _e('Subfolders in the ZIP become parent pages. Images and documents are uploaded in a second step — only files actually referenced in the HTML.', PI_NAME); ?></p>
                     </div>
 
                     <div class="pi-card">
@@ -370,31 +334,6 @@ class PI_Admin_UI {
             </div>
         </div>
 
-        <!-- Folder Browser Modal -->
-        <div id="pi-folder-browser-modal" class="pi-modal" style="display: none;">
-            <div class="pi-modal-content">
-                <div class="pi-modal-header">
-                    <h2 id="pi-modal-title"><?php _e('Select Folder', PI_NAME); ?></h2>
-                    <button type="button" class="pi-modal-close">&times;</button>
-                </div>
-                <div class="pi-modal-body">
-                    <div class="pi-folder-path">
-                        <strong><?php _e('Current Path:', PI_NAME); ?></strong>
-                        <span id="pi-current-path">/</span>
-                    </div>
-                    <div class="pi-folder-list" id="pi-folder-list">
-                        <div class="pi-folder-loading">
-                            <span class="spinner is-active"></span>
-                            <p><?php _e('Loading folders...', PI_NAME); ?></p>
-                        </div>
-                    </div>
-                </div>
-                <div class="pi-modal-footer">
-                    <button type="button" class="button button-secondary" id="pi-folder-cancel"><?php _e('Cancel', PI_NAME); ?></button>
-                    <button type="button" class="button button-primary" id="pi-folder-select"><?php _e('Select This Folder', PI_NAME); ?></button>
-                </div>
-            </div>
-        </div>
      <?php
     }
 }

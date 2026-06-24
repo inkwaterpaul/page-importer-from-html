@@ -104,14 +104,19 @@ class PI_Importer {
             self::update_document_urls($page_id, $options['documents_folder']);
         }
 
+        // Store any still-unresolved image/doc references as pending for Phase 2 upload
+        $pending = self::save_pending_media($page_id);
+
         return array(
-            'success' => true,
-            'page_id' => $page_id,
-            'page_title' => $extracted['title'],
+            'success'        => true,
+            'page_id'        => $page_id,
+            'page_title'     => $extracted['title'],
             'featured_image' => $featured_image_id ? 'Set' : 'Not found',
-            'file_name' => $extracted['file_name'],
-            'edit_url' => get_edit_post_link($page_id, 'raw'),
-            'view_url' => get_permalink($page_id)
+            'file_name'      => $extracted['file_name'],
+            'edit_url'       => get_edit_post_link($page_id, 'raw'),
+            'view_url'       => get_permalink($page_id),
+            'pending_images' => $pending['images'],
+            'pending_docs'   => $pending['docs'],
         );
 
         } catch (Exception $e) {
@@ -733,5 +738,188 @@ class PI_Importer {
         }
 
         return false;
+    }
+
+    /**
+     * Scan the current saved content of a page for any remaining non-absolute image
+     * src and document href values, and store them as post meta so Phase 2 can resolve them.
+     *
+     * Returns ['images' => [...filenames...], 'docs' => [...filenames...]]
+     */
+    public static function save_pending_media($page_id) {
+        $page = get_post($page_id);
+        if (!$page) {
+            return array('images' => array(), 'docs' => array());
+        }
+        $content = $page->post_content;
+
+        // Unresolved images: src values that are not absolute URLs
+        $pending_images = array();
+        preg_match_all('/<img[^>]+src="([^"]+)"[^>]*>/i', $content, $matches);
+        foreach ($matches[1] as $src) {
+            if (preg_match('#^https?://#', $src)) {
+                continue;
+            }
+            $filename = basename(preg_replace('/\?.*$/', '', urldecode($src)));
+            if ($filename) {
+                $pending_images[] = array('filename' => $filename, 'original_src' => $src);
+            }
+        }
+
+        // Unresolved docs: href values with document extensions that are not absolute URLs
+        $doc_ext = array('pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'zip', 'txt', 'csv');
+        $pending_docs = array();
+        preg_match_all('/href="([^"]+\.(' . implode('|', $doc_ext) . '))"/i', $content, $matches);
+        foreach ($matches[1] as $href) {
+            if (preg_match('#^https?://#', $href)) {
+                continue;
+            }
+            $filename = basename(preg_replace('/\?.*$/', '', urldecode($href)));
+            if ($filename) {
+                $pending_docs[] = array('filename' => $filename, 'original_href' => $href);
+            }
+        }
+
+        if (!empty($pending_images)) {
+            update_post_meta($page_id, '_pi_pending_images', $pending_images);
+        } else {
+            delete_post_meta($page_id, '_pi_pending_images');
+        }
+
+        if (!empty($pending_docs)) {
+            update_post_meta($page_id, '_pi_pending_docs', $pending_docs);
+        } else {
+            delete_post_meta($page_id, '_pi_pending_docs');
+        }
+
+        return array(
+            'images' => array_values(array_unique(array_column($pending_images, 'filename'))),
+            'docs'   => array_values(array_unique(array_column($pending_docs, 'filename'))),
+        );
+    }
+
+    /**
+     * Phase 2: match uploaded files to pages with pending media, upload to media
+     * library, and update page content with the new WP URLs.
+     *
+     * $files_by_name = [ 'photo.jpg' => '/server/path/to/photo.jpg', ... ]
+     */
+    public static function process_pending_media($files_by_name) {
+        $results = array(
+            'images_updated' => 0,
+            'docs_updated'   => 0,
+            'pages_updated'  => 0,
+            'still_missing'  => array(),
+        );
+
+        $pages = get_posts(array(
+            'post_type'      => 'page',
+            'post_status'    => array('publish', 'draft', 'pending', 'private'),
+            'posts_per_page' => -1,
+            'fields'         => 'ids',
+            'meta_query'     => array(
+                'relation' => 'OR',
+                array('key' => '_pi_pending_images', 'compare' => 'EXISTS'),
+                array('key' => '_pi_pending_docs',   'compare' => 'EXISTS'),
+            ),
+        ));
+
+        // Cache uploaded attachments so the same file is only sent to WP media once
+        $attach_cache = array();
+
+        foreach ($pages as $page_id) {
+            $page    = get_post($page_id);
+            $content = $page->post_content;
+            $changed = false;
+
+            // --- Images ---
+            $pending_images = get_post_meta($page_id, '_pi_pending_images', true);
+            if (!empty($pending_images) && is_array($pending_images)) {
+                $still_pending  = array();
+                $first_image_id = null;
+
+                foreach ($pending_images as $item) {
+                    $filename = $item['filename'];
+                    $orig_src = $item['original_src'];
+
+                    if (isset($files_by_name[$filename])) {
+                        if (!isset($attach_cache[$filename])) {
+                            $attach_cache[$filename] = self::upload_image($files_by_name[$filename], $page_id);
+                        }
+                        $attach_id = $attach_cache[$filename];
+                        if ($attach_id) {
+                            $new_url  = wp_get_attachment_url($attach_id);
+                            $content  = str_replace('src="' . $orig_src . '"', 'src="' . $new_url . '"', $content);
+                            $changed  = true;
+                            $results['images_updated']++;
+                            if ($first_image_id === null) {
+                                $first_image_id = $attach_id;
+                            }
+                        } else {
+                            $still_pending[]            = $item;
+                            $results['still_missing'][] = $filename;
+                        }
+                    } else {
+                        $still_pending[]            = $item;
+                        $results['still_missing'][] = $filename;
+                    }
+                }
+
+                if (empty($still_pending)) {
+                    delete_post_meta($page_id, '_pi_pending_images');
+                } else {
+                    update_post_meta($page_id, '_pi_pending_images', $still_pending);
+                }
+
+                if ($first_image_id && !has_post_thumbnail($page_id)) {
+                    set_post_thumbnail($page_id, $first_image_id);
+                }
+            }
+
+            // --- Documents ---
+            $pending_docs = get_post_meta($page_id, '_pi_pending_docs', true);
+            if (!empty($pending_docs) && is_array($pending_docs)) {
+                $still_pending = array();
+
+                foreach ($pending_docs as $item) {
+                    $filename  = $item['filename'];
+                    $orig_href = $item['original_href'];
+
+                    if (isset($files_by_name[$filename])) {
+                        if (!isset($attach_cache[$filename])) {
+                            $attach_cache[$filename] = self::upload_document($files_by_name[$filename], $page_id);
+                        }
+                        $attach_id = $attach_cache[$filename];
+                        if ($attach_id) {
+                            $new_url  = wp_get_attachment_url($attach_id);
+                            $content  = str_replace('href="' . $orig_href . '"', 'href="' . $new_url . '"', $content);
+                            $changed  = true;
+                            $results['docs_updated']++;
+                        } else {
+                            $still_pending[]            = $item;
+                            $results['still_missing'][] = $filename;
+                        }
+                    } else {
+                        $still_pending[]            = $item;
+                        $results['still_missing'][] = $filename;
+                    }
+                }
+
+                if (empty($still_pending)) {
+                    delete_post_meta($page_id, '_pi_pending_docs');
+                } else {
+                    update_post_meta($page_id, '_pi_pending_docs', $still_pending);
+                }
+            }
+
+            if ($changed) {
+                wp_update_post(array('ID' => $page_id, 'post_content' => $content));
+                $results['pages_updated']++;
+            }
+        }
+
+        $results['still_missing'] = array_values(array_unique($results['still_missing']));
+
+        return $results;
     }
 }

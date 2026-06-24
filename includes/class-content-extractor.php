@@ -105,10 +105,14 @@ class PI_Content_Extractor {
 
         $content_div = $page_content_divs->item(0);
 
-        // Get the inner HTML
+        // Get inner HTML, unwrapping any direct-child layout tables
         $inner_html = '';
         foreach ($content_div->childNodes as $child) {
-            $inner_html .= $dom->saveHTML($child);
+            if ($child instanceof DOMElement && strtolower($child->tagName) === 'table') {
+                $inner_html .= self::extract_table_content($child, $dom);
+            } else {
+                $inner_html .= $dom->saveHTML($child);
+            }
         }
 
         // For patterns, use minimal cleaning to preserve structure
@@ -202,6 +206,21 @@ class PI_Content_Extractor {
     }
 
     /**
+     * Extract raw inner content from a layout table, concatenating all <td> cell contents.
+     * Nested tables inside cells are left intact and handled later by convert_to_blocks.
+     */
+    private static function extract_table_content($table, $dom) {
+        $html = '';
+        $cells = $table->getElementsByTagName('td');
+        foreach ($cells as $cell) {
+            foreach ($cell->childNodes as $child) {
+                $html .= $dom->saveHTML($child);
+            }
+        }
+        return $html;
+    }
+
+    /**
      * Convert HTML content to WordPress blocks
      *
      * @param string $html HTML content
@@ -270,6 +289,23 @@ class PI_Content_Extractor {
                 return "<!-- wp:list {\"ordered\":true} -->\n" . $html . "\n<!-- /wp:list -->\n\n";
 
             case 'blockquote':
+                // If the blockquote contains block-level children (div, heading, img etc.)
+                // it's being used as a layout/card container — process its children as blocks
+                $has_block_children = false;
+                foreach ($node->childNodes as $bqChild) {
+                    if ($bqChild->nodeType === XML_ELEMENT_NODE &&
+                        in_array(strtolower($bqChild->nodeName), ['div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'img', 'figure', 'ul', 'ol', 'table'])) {
+                        $has_block_children = true;
+                        break;
+                    }
+                }
+                if ($has_block_children) {
+                    $content = '';
+                    foreach ($node->childNodes as $child) {
+                        $content .= self::node_to_block($child);
+                    }
+                    return $content;
+                }
                 return "<!-- wp:quote -->\n" . $html . "\n<!-- /wp:quote -->\n\n";
 
             case 'pre':
